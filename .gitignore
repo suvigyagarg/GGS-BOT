@@ -1,0 +1,26 @@
+# deps
+/node_modules
+/.claude
+# next
+/.next/
+/out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+*.pem
+
+# local image backups (pre-optimization originals)
+/public/Images/_originals/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# vercel
+.vercel
