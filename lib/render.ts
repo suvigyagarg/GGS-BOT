@@ -105,10 +105,11 @@ export function formatCategoryList(
   }
 
   const total = entries.reduce((s, e) => s + e.amount, 0);
-  const rows = entries.map((e) => {
-    const desc = e.notes ? `${e.description} · ${e.notes}` : e.description;
-    return [shortDate(e.date), truncate(desc, 24), inr(e.amount)];
-  });
+  const rows = entries.map((e) => [
+    shortDate(e.date),
+    truncate(e.description, 28),
+    inr(e.amount),
+  ]);
   rows.push(['', 'Total', inr(total)]);
 
   const n = entries.length;

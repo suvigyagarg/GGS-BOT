@@ -147,6 +147,21 @@ export async function monthTotals(
   }
   return { total, byCat };
 }
+// Sheets stores dates as serial numbers (days since 1899-12-30). Converting them
+// ourselves is locale-independent — reading FORMATTED_VALUE gives whatever the
+// sheet happens to display, which differs row to row.
+function serialToISO(v: unknown): string {
+  if (typeof v === 'number' && isFinite(v)) {
+    const d = new Date(Math.round((v - 25569) * 86400000)); // 25569 = serial of 1970-01-01
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${m}-${day}`;
+  }
+  return String(v ?? '');
+}
+
+// Every transaction logged in `month` under one category, in the order entered.
+// Returns null when that month's tab doesn't exist yet.
 export async function categoryEntries(
   month: string,
   category: string,
@@ -155,7 +170,8 @@ export async function categoryEntries(
   const res = await client().spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
     range: `${month}!A2:E`,
-    valueRenderOption: 'FORMATTED_VALUE',
+    valueRenderOption: 'UNFORMATTED_VALUE',
+    dateTimeRenderOption: 'SERIAL_NUMBER',
   });
   const out: ExpenseRow[] = [];
   for (const r of res.data.values || []) {
@@ -163,7 +179,7 @@ export async function categoryEntries(
     const amount = parseFloat(String(r[3] ?? '').replace(/[₹,\s]/g, ''));
     if (!isFinite(amount)) continue;
     out.push({
-      date: String(r[0] ?? ''),
+      date: serialToISO(r[0]),
       description: String(r[1] ?? ''),
       category: String(r[2] ?? ''),
       amount,
