@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { parseExpense, CATEGORIES } from './lib/parse';
-import { ensureMonthSheet, appendExpense, monthTotals } from './lib/sheets';
-import { istParts } from './lib/util';
+import { parseExpense, CATEGORIES } from '../lib/parse';
+import { ensureMonthSheet, appendExpense, monthTotals } from '../lib/sheets';
+import { istParts } from '../lib/util';
 
 async function send(chatId: number, text: string, html = false): Promise<void> {
   await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
