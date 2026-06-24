@@ -1,10 +1,10 @@
-# Expense Telegram Bot
+# GGS Accounts Telegram Bot
 
 Message a Telegram bot like `200 - coffee - wants` and it logs the expense to a
 Google Sheet, with a **new tab per month** (`2026-06`, `2026-07`, …). Each tab gets a
 bold header, a ₹ currency column, and a category **dropdown** on the Type column.
 
-Runs as a single Vercel serverless function — nothing always-on to host, and it's free.
+Runs as a single Vercel serverless function .
 
 ## Message format
 
@@ -59,21 +59,4 @@ export TELEGRAM_SECRET_TOKEN=...     # same secret as above
 ```
 You should see `{"ok":true,...}`.
 
-### 6. Use it
-Message your bot: `200 - coffee - wants` → it replies `✅ ₹200.00 · coffee · wants (2026-06-24)`
-and the row appears in the current month's tab.
 
-## Local type-check
-```bash
-npm install
-npm run typecheck
-```
-
-## Notes / next steps
-- The Sheet stays a normal spreadsheet — export any month tab to `.xlsx` anytime.
-- The dropdown is for when you edit rows by hand in the Sheet; the bot writes a valid
-  category directly.
-- Want messy/voice input to "just work" (e.g. "spent 200 on coffee, a want")? Add an
-  Anthropic API call as a fallback when `parseExpense` returns `format` — drop it into
-  `handleText` before the error reply.
-# GGS-BOT
