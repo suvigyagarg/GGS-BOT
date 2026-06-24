@@ -1,8 +1,11 @@
 import { google, sheets_v4 } from 'googleapis';
-import { CATEGORIES } from './parse';
+import { CATEGORIES, type Category } from './parse';
+import type { Investment, Profile } from './budget';
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const HEADERS = ['Date', 'Description', 'Type', 'Amount', 'Notes'];
+const SETTINGS_TAB = '_Settings';
+const INVEST_TAB = '_Investments';
 
 let _sheets: sheets_v4.Sheets | null = null;
 
@@ -143,4 +146,125 @@ export async function monthTotals(
     byCat[cat] = (byCat[cat] || 0) + amt;
   }
   return { total, byCat };
+}
+async function ensureSimpleSheet(title: string, headers: string[]): Promise<void> {
+  const s = client();
+  if ((await findSheetId(title)) !== null) return;
+
+  const add = await s.spreadsheets.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      requests: [
+        {
+          addSheet: {
+            properties: {
+              title,
+              gridProperties: {
+                rowCount: 100,
+                columnCount: headers.length,
+                frozenRowCount: 1,
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  const sheetId = add.data.replies?.[0]?.addSheet?.properties?.sheetId;
+  await s.spreadsheets.values.update({
+    spreadsheetId: spreadsheetId(),
+    range: `${title}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [headers] },
+  });
+
+  if (sheetId != null) {
+    await s.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId(),
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+              cell: { userEnteredFormat: { textFormat: { bold: true } } },
+              fields: 'userEnteredFormat.textFormat.bold',
+            },
+          },
+        ],
+      },
+    });
+  }
+}
+
+export async function getProfile(): Promise<Profile | null> {
+  if ((await findSheetId(SETTINGS_TAB)) === null) return null;
+  const res = await client().spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${SETTINGS_TAB}!A2:B`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+  const rows = res.data.values || [];
+  let salary = 0;
+  const budgetPct: Partial<Record<Category, number>> = {};
+  for (const r of rows) {
+    const key = String(r[0] ?? '').trim().toLowerCase();
+    const val = parseFloat(String(r[1] ?? '').replace(/[₹,%\s]/g, ''));
+    if (!isFinite(val)) continue;
+    if (key === 'salary') salary = val;
+    else if ((CATEGORIES as readonly string[]).includes(key)) budgetPct[key as Category] = val;
+  }
+  if (!salary && Object.keys(budgetPct).length === 0) return null;
+  return { salary, budgetPct };
+}
+
+export async function setProfile(p: Profile): Promise<void> {
+  await ensureSimpleSheet(SETTINGS_TAB, ['Key', 'Value']);
+  const rows: (string | number)[][] = [['salary', p.salary]];
+  for (const c of CATEGORIES) {
+    const pct = p.budgetPct[c];
+    if (pct != null) rows.push([c, pct]);
+  }
+  await client().spreadsheets.values.clear({
+    spreadsheetId: spreadsheetId(),
+    range: `${SETTINGS_TAB}!A2:B`,
+  });
+  await client().spreadsheets.values.update({
+    spreadsheetId: spreadsheetId(),
+    range: `${SETTINGS_TAB}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: { values: rows },
+  });
+}
+
+export async function getInvestments(): Promise<Investment[]> {
+  if ((await findSheetId(INVEST_TAB)) === null) return [];
+  const res = await client().spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${INVEST_TAB}!A2:B`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+  const out: Investment[] = [];
+  for (const r of res.data.values || []) {
+    const name = String(r[0] ?? '').trim();
+    const amount = parseFloat(String(r[1] ?? '').replace(/[₹,\s]/g, ''));
+    if (name && isFinite(amount)) out.push({ name, amount });
+  }
+  return out;
+}
+
+// Replaces the whole list (the user re-sends the full "form" to update it).
+export async function setInvestments(items: Investment[]): Promise<void> {
+  await ensureSimpleSheet(INVEST_TAB, ['Name', 'Amount']);
+  await client().spreadsheets.values.clear({
+    spreadsheetId: spreadsheetId(),
+    range: `${INVEST_TAB}!A2:B`,
+  });
+  if (items.length === 0) return;
+  await client().spreadsheets.values.update({
+    spreadsheetId: spreadsheetId(),
+    range: `${INVEST_TAB}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: { values: items.map((x) => [x.name, x.amount]) },
+  });
 }

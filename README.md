@@ -23,7 +23,46 @@ Examples:
 Categories: `needs, wants, family, investment, suspense`
 (typos like `want` or `invst` are auto-corrected; an unknown category is rejected, not logged).
 
-Commands: `/total` shows this month's spend, broken down by category.
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/total` | This month's spend, by category, as an aligned table with a total. |
+| `/analyze` | Budget vs actual per category, savings, and **flagged overspends**. |
+| `/budget` | Show your budget. Send it with a form (below) to set it. |
+| `/invest` | Show your outstanding investments + total. Send a form to update. |
+| `/help` | Usage + command list. |
+
+### Setting a budget
+
+Send `/budget` followed by your salary and the **percent of salary** you want to
+allow each category. Salary + any subset of categories can be updated at once:
+
+```
+/budget
+salary 60000
+needs 40
+wants 15
+family 12
+investment 25
+suspense 3
+```
+
+`/analyze` then turns each percent into a rupee budget (`salary × pct`), compares
+it to what you've actually spent this month, and lists where you've gone over.
+
+### Recording investments
+
+Send `/invest` with a line per holding (`name = amount`). Re-sending the full
+list replaces it (it's a snapshot of what you currently hold):
+
+```
+/invest
+LIC = 50000
+Mutual Funds = 240000
+Stocks = 75000
+PPF = 130000
+```
 
 ## One-time setup (~15 min)
 
