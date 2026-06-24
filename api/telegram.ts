@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { parseExpense, CATEGORIES } from '../lib/parse';
+import { parseExpense, normalizeCategory, CATEGORIES } from '../lib/parse';
 import {
   ensureMonthSheet,
   appendExpense,
   monthTotals,
+  categoryEntries,
   getProfile,
   setProfile,
   getInvestments,
@@ -21,6 +22,7 @@ import {
   formatInvestments,
   formatAnalysis,
   formatSpendConfirmation,
+  formatCategoryList,
   budgetHelp,
   investHelp,
 } from '../lib/render';
@@ -50,6 +52,7 @@ const HELP =
   '/analyze — budget vs actual + overspends\n' +
   '/budget — set salary &amp; category split\n' +
   '/invest — your outstanding investments\n' +
+  `${CATEGORIES.map((c) => `/${c}`).join(' ')} — list a category's transactions\n` +
   '/help — show this';
 
 // Splits "/cmd rest..." into the (lowercased, @bot-stripped) command and its body.
@@ -117,6 +120,12 @@ async function handleInvest(chatId: number, body: string): Promise<void> {
   await send(chatId, msg);
 }
 
+async function handleCategory(chatId: number, category: string): Promise<void> {
+  const { month } = istParts();
+  const entries = await categoryEntries(month, category);
+  await send(chatId, formatCategoryList(month, category, entries || []));
+}
+
 async function handleAnalyze(chatId: number): Promise<void> {
   const { month } = istParts();
   const [t, profile, investments] = await Promise.all([
@@ -157,6 +166,18 @@ async function handleText(chatId: number, text: string): Promise<void> {
     case '/analyse':
       await handleAnalyze(chatId);
       return;
+  }
+
+  // /needs, /wants, /family, /investment, /suspense -> that category's transactions.
+  if (cmd.startsWith('/')) {
+    const cat = normalizeCategory(cmd.slice(1));
+    if (cat && (CATEGORIES as readonly string[]).includes(cat)) {
+      await handleCategory(chatId, cat);
+      return;
+    }
+    // Unknown slash command -> show help rather than failing to parse it as a spend.
+    await send(chatId, HELP);
+    return;
   }
 
   // Not a command -> log it as an expense.

@@ -147,6 +147,32 @@ export async function monthTotals(
   }
   return { total, byCat };
 }
+export async function categoryEntries(
+  month: string,
+  category: string,
+): Promise<ExpenseRow[] | null> {
+  if ((await findSheetId(month)) === null) return null;
+  const res = await client().spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${month}!A2:E`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+  const out: ExpenseRow[] = [];
+  for (const r of res.data.values || []) {
+    if (String(r[2] ?? '').trim().toLowerCase() !== category.toLowerCase()) continue;
+    const amount = parseFloat(String(r[3] ?? '').replace(/[₹,\s]/g, ''));
+    if (!isFinite(amount)) continue;
+    out.push({
+      date: String(r[0] ?? ''),
+      description: String(r[1] ?? ''),
+      category: String(r[2] ?? ''),
+      amount,
+      notes: String(r[4] ?? ''),
+    });
+  }
+  return out;
+}
+
 async function ensureSimpleSheet(title: string, headers: string[]): Promise<void> {
   const s = client();
   if ((await findSheetId(title)) !== null) return;

@@ -1,4 +1,5 @@
 import type { Analysis, Investment, Profile } from './budget';
+import type { ExpenseRow } from './sheets';
 
 
 const inrFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
@@ -22,6 +23,19 @@ function padStart(s: string, n: number): string {
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "2026-06-24" -> "24 Jun"; anything else is shown as-is.
+function shortDate(s: string): string {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s;
+  return `${m[3]} ${MONTHS[parseInt(m[2], 10) - 1] || m[2]}`;
+}
+
+function truncate(s: string, n: number): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + '…';
 }
 
 /** Render aligned rows. `aligns`: 'l' left-pads-right (text), 'r' right-aligns (numbers). */
@@ -75,6 +89,32 @@ export function formatTotal(
   return (
     `<b>📊 ${month} · Spending</b>\n` +
     wrapPre(tableWithRule(rows, ['l', 'r', 'r']))
+  );
+}
+
+// ── /needs, /wants, … (one category's transactions) ───────────────────────────
+
+export function formatCategoryList(
+  month: string,
+  category: string,
+  entries: ExpenseRow[],
+): string {
+  const title = `<b>🏷️ ${cap(category)} · ${month}</b>`;
+  if (entries.length === 0) {
+    return `${title}\n\nNo ${esc(category)} entries this month.`;
+  }
+
+  const total = entries.reduce((s, e) => s + e.amount, 0);
+  const rows = entries.map((e) => {
+    const desc = e.notes ? `${e.description} · ${e.notes}` : e.description;
+    return [shortDate(e.date), truncate(desc, 24), inr(e.amount)];
+  });
+  rows.push(['', 'Total', inr(total)]);
+
+  const n = entries.length;
+  return (
+    `${title}  ·  ${n} txn${n > 1 ? 's' : ''}\n` +
+    wrapPre(tableWithRule(rows, ['l', 'l', 'r']))
   );
 }
 
